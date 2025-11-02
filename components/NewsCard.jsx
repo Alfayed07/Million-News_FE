@@ -1,0 +1,50 @@
+import React from "react";
+import Link from "next/link";
+
+export default function NewsCard({ title, description, image, href, actionLabel = "Read More" }) {
+  return (
+    <div className="p-4 @container">
+      <div className="flex flex-col items-stretch justify-start rounded-xl @xl:flex-row @xl:items-start">
+        {href ? (
+          <Link href={href} className="w-full">
+            <div
+              className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+              style={{ backgroundImage: `url("${image}")` }}
+              aria-label={title}
+            />
+          </Link>
+        ) : (
+          <div
+            className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+            style={{ backgroundImage: `url("${image}")` }}
+            aria-label={title}
+          />
+        )}
+        <div className="flex w-full min-w-72 grow flex-col items-stretch justify-center gap-1 py-4 @xl:px-4">
+          {href ? (
+            <Link href={href} className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em] hover:underline">
+              {title}
+            </Link>
+          ) : (
+            <p className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em]">{title}</p>
+          )}
+          <div className="flex items-end gap-3 justify-between">
+            <p className="text-[#637588] text-base font-normal leading-normal">{description}</p>
+            {href ? (
+              <Link
+                href={href}
+                className="flex min-w-[84px] max-w-[480px] items-center justify-center overflow-hidden rounded-xl h-8 px-4 bg-[#1980e6] text-white text-sm font-medium leading-normal"
+              >
+                <span className="truncate">{actionLabel}</span>
+              </Link>
+            ) : (
+              <button className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-8 px-4 bg-[#1980e6] text-white text-sm font-medium leading-normal">
+                <span className="truncate">{actionLabel}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
