@@ -34,18 +34,12 @@ export default function ProfilPage({ profile }) {
           <div className="flex items-center gap-10">
             <div className="text-lg font-semibold">News Today</div>
             <nav className="hidden md:flex items-center gap-6 text-sm text-[#111418]">
-              <Link href="#" className="hover:underline">For You</Link>
-              <Link href="/home" className="hover:underline">News</Link>
-              <Link href="#" className="hover:underline">Entertainment</Link>
-              <Link href="#" className="hover:underline">Sports</Link>
-              <Link href="#" className="hover:underline">Tech</Link>
-              <Link href="#" className="hover:underline">Science</Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/home" aria-label="Home" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🏠</Link>
-            <button aria-label="Lock" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🔒</button>
-            <button aria-label="Search" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🔍</button>
+            {/* <button aria-label="Lock" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🔒</button> */}
+            {/* <button aria-label="Search" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🔍</button> */}
             <Link href="/profil" aria-label="Profile" className="grid place-items-center size-9 rounded-full border overflow-hidden">
               <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-8" style={{ backgroundImage: `url("${p.avatar}")` }} />
             </Link>
@@ -80,7 +74,7 @@ export default function ProfilPage({ profile }) {
             </Link>
           </div>
 
-          {/* Account section */}
+          {/* Account section
           <div className="mt-8">
             <div className="text-xs font-semibold text-[#111418] mb-2">Account</div>
             <div className="rounded-xl border divide-y">
@@ -93,7 +87,7 @@ export default function ProfilPage({ profile }) {
                 <span aria-hidden>›</span>
               </Link>
             </div>
-          </div>
+          </div> */}
 
           {/* Logout */}
           <div className="mt-6">
@@ -128,12 +122,10 @@ export default function ProfilPage({ profile }) {
                   setSaving(true);
                   setMsg({});
                   try {
-                    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
                     const res = await fetch("/api/user/profile", {
                       method: "PUT",
                       headers: {
                         "Content-Type": "application/json",
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
                       },
                       body: JSON.stringify(form),
                     });
@@ -194,8 +186,43 @@ export default function ProfilPage({ profile }) {
   );
 }
 
-// export async function getServerSideProps() {
-// //   const profile = await fetchProfile();
-// //   const articles = await fetchProfileArticles(profile?.id);
-//   return { props: { profile, articles } };
-// }
+export async function getServerSideProps(ctx) {
+  const { req, resolvedUrl } = ctx || {};
+  const cookie = req?.headers?.cookie || "";
+  const hasToken = cookie.includes("token=");
+  if (!hasToken) {
+    return {
+      redirect: {
+        destination: `/auth/login?next=${encodeURIComponent(resolvedUrl || "/profil")}`,
+        permanent: false,
+      },
+    };
+  }
+  const proto = (req.headers["x-forwarded-proto"] || "http").toString();
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  const origin = `${proto}://${host}`;
+  const resp = await fetch(`${origin}/api/user/profile`, {
+    headers: {
+      cookie,
+    },
+  });
+  if (resp.status === 401) {
+    return {
+      redirect: {
+        destination: `/auth/login?next=${encodeURIComponent(resolvedUrl || "/profil")}`,
+        permanent: false,
+      },
+    };
+  }
+  let profile = null;
+  try { profile = await resp.json(); } catch {}
+  if (!resp.ok || !profile) {
+    return {
+      redirect: {
+        destination: `/auth/login?next=${encodeURIComponent(resolvedUrl || "/profil")}`,
+        permanent: false,
+      },
+    };
+  }
+  return { props: { profile } };
+}

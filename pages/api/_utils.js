@@ -1,4 +1,4 @@
-import api from "../../../config/axios/axios";
+import api from "../../config/axios/axios";
 
 // Simple proxy helper to call backend with same method/path and pass through body/query.
 export async function proxyRequest(req, res, targetPath) {
