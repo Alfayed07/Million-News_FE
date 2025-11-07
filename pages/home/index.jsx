@@ -1,9 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import React, { useEffect, useState, forwardRef } from "react";
 import NewsCard from "../../components/NewsCard";
-import { fetchTopStories, fetchCategory, fetchTrending, fetchSearch } from "../../lib/news";
+import TopStoriesSlider from "../../components/TopStoriesSlider";
+import { Pagination } from "rsuite";
+import { fetchTopStories, fetchCategory, fetchTrending, fetchSearch, fetchCategoryPaged, fetchSearchPaged } from "../../lib/news";
+import { timeAgoID } from "../../lib/formatDate";
+import { fetchCategories } from "../../lib/categories";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
 
 export default function Home({
   topStories = [],
@@ -15,17 +19,38 @@ export default function Home({
   trending = [],
   initialQuery = "",
   searchResults = [],
+  profile = null,
+  categories = [],
+  selectedCategory = "",
+  categoryItems = [],
+  // pagination meta
+  searchTotal = 0,
+  searchPage = 1,
+  searchLimit = 10,
+  categoryTotal = 0,
+  categoryPage = 1,
+  categoryLimit = 10,
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
 
-  const top = topStories.slice(0, 2);
+  // We now show Top Stories as a slider; fetch provides more items, rendered in pages of up to 6
   const pick = (arr) => (Array.isArray(arr) && arr.length > 0 ? arr[0] : null);
   const nat = pick(national);
   const intl = pick(international);
   const spr = pick(sports);
   const ent = pick(entertainment);
   const tech = pick(technology);
+
+  // RSuite Pagination link component to work with Next.js routing
+  const NavLink = forwardRef(({ href, active, eventKey, as, ...rest }, ref) => {
+    const q = { ...router.query, page: eventKey };
+    const linkHref = { pathname: "/home", query: q };
+    return (
+      <Link ref={ref} href={linkHref} className={active ? "active" : undefined} {...rest} />
+    );
+  });
+  NavLink.displayName = "NavLink";
 
   return (
     <div className="relative flex size-full min-h-screen flex-col bg-white group/design-root overflow-x-hidden" style={{ fontFamily: 'Newsreader, "Noto Sans", sans-serif' }}>
@@ -48,13 +73,17 @@ export default function Home({
               </div>
               <h2 className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em]">Milion News</h2>
             </div>
-            <div className="flex items-center gap-9">
-              <a className="text-[#111418] text-sm font-medium leading-normal" href="#">Home</a>
-              <a className="text-[#111418] text-sm font-medium leading-normal" href="#">National</a>
-              <a className="text-[#111418] text-sm font-medium leading-normal" href="#">International</a>
-              <a className="text-[#111418] text-sm font-medium leading-normal" href="#">Sports</a>
-              <a className="text-[#111418] text-sm font-medium leading-normal" href="#">Entertainment</a>
-              <a className="text-[#111418] text-sm font-medium leading-normal" href="#">Technology</a>
+            <div className="flex items-center gap-6">
+              <Link className="text-[#111418] text-sm font-medium leading-normal hover:underline" href="/home">Home</Link>
+              {categories.slice(0, 6).map((c) => (
+                <Link
+                  key={c.id}
+                  className={`text-sm font-medium leading-normal ${selectedCategory?.toLowerCase() === String(c.name).toLowerCase() ? "text-[#1980e6]" : "text-[#111418]"} hover:underline`}
+                  href={{ pathname: "/home", query: { category: c.name } }}
+                >
+                  {String(c.name).charAt(0).toUpperCase() + String(c.name).slice(1)}
+                </Link>
+              ))}
             </div>
           </div>
           <div className="flex flex-1 justify-end gap-8">
@@ -100,7 +129,8 @@ export default function Home({
             <Link href="/profil" aria-label="Go to profile">
               <div
                 className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
-                style={{ backgroundImage: 'url("https://cdn.usegalileo.ai/sdxl10/ca674659-8fe0-4026-9c16-42713ba26d5c.png")' }}
+                style={{ backgroundImage: `url("${profile?.avatar || "/default-avatar.svg"}")` }}
+                title={profile?.username || profile?.name || "Profile"}
               ></div>
             </Link>
           </div>
@@ -111,7 +141,7 @@ export default function Home({
               <div className="@[480px]:px-4 @[480px]:py-3">
                 <div
                   className="bg-cover bg-center flex flex-col justify-end overflow-hidden bg-white @[480px]:rounded-xl min-h-[218px]"
-                  style={{ backgroundImage: 'linear-gradient(0deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 25%), url("https://cdn.usegalileo.ai/sdxl10/f174c73b-060d-4c1f-ab46-48e3f8994500.png")' }}
+                  style={{ backgroundImage: 'linear-gradient(0deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 25%), url("https://picsum.photos/seed/hero-news/1200/400")' }}
                 >
                   <div className="flex justify-center gap-2 p-5">
                     <div className="size-1.5 rounded-full bg-white"></div>
@@ -133,42 +163,97 @@ export default function Home({
                       title={item.title}
                       description={item.description}
                       image={item.image}
+                      createdAt={item.created_at}
+                      publishedAt={item.published_at}
+                      href={`/berita/${encodeURIComponent(item.id)}`}
                     />
                   ))
                 ) : (
                   <div className="px-4 text-[#637588]">No results found.</div>
                 )}
-                <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Top Stories</h2>
+                <div className="flex justify-center">
+                  <Pagination
+                    layout={["total", "-", "limit", "|", "pager", "skip"]}
+                    limitOptions={[10, 20, 50]}
+                    prev
+                    next
+                    first
+                    last
+                    linkAs={NavLink}
+                    total={searchTotal}
+                    limit={searchLimit}
+                    activePage={searchPage}
+                    onChangeLimit={(l) => {
+                      const q = { ...router.query, q: initialQuery, page: 1, limit: l };
+                      router.push({ pathname: "/home", query: q });
+                    }}
+                  />
+                </div>
+              </>
+            ) : selectedCategory ? (
+              <>
+                <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
+                  Category: {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
+                </h2>
+                {categoryItems && categoryItems.length > 0 ? (
+                  categoryItems.map((item) => (
+                    <NewsCard
+                      key={item.id}
+                      title={item.title}
+                      description={item.description}
+                      image={item.image}
+                      createdAt={item.created_at}
+                      publishedAt={item.published_at}
+                      href={`/berita/${encodeURIComponent(item.id)}`}
+                    />
+                  ))
+                ) : (
+                  <div className="px-4 text-[#637588]">No articles in this category.</div>
+                )}
+                <div className="flex justify-center">
+                  <Pagination
+                    layout={["total", "-", "limit", "|", "pager", "skip"]}
+                    limitOptions={[10, 20, 50]}
+                    prev
+                    next
+                    first
+                    last
+                    linkAs={NavLink}
+                    total={categoryTotal}
+                    limit={categoryLimit}
+                    activePage={categoryPage}
+                    onChangeLimit={(l) => {
+                      const q = { ...router.query, category: selectedCategory, page: 1, limit: l };
+                      router.push({ pathname: "/home", query: q });
+                    }}
+                  />
+                </div>
               </>
             ) : (
               <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Top Stories</h2>
             )}
-            {top.length > 0 ? (
-              top.map((item) => (
-                <NewsCard
-                  key={item.id}
-                  title={item.title}
-                  description={item.description}
-                  image={item.image}
-                  href={`/berita/${encodeURIComponent(item.id)}`}
-                />
-              ))
-            ) : (
-              <>
-                <NewsCard
-                  title="Government Announces New Economic Plan to Boost Job Growth"
-                  description="lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-                  image="https://cdn.usegalileo.ai/sdxl10/c211285b-0fdc-46ee-9467-9471799200dd.png"
-                  href="/berita/1"
-                />
-                <NewsCard
-                  title="Tech Giant Unveils Latest Smartphone Model with Advanced Features"
-                  description="lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-                  image="https://cdn.usegalileo.ai/sdxl10/5adb2e21-9930-44df-b4ec-db97de1aabce.png"
-                  href="/berita/2"
-                />
-              </>
+            {!selectedCategory && !initialQuery && (
+              topStories && topStories.length > 0 ? (
+                <TopStoriesSlider items={topStories} perPage={6} />
+              ) : (
+                <>
+                  <NewsCard
+                    title="Government Announces New Economic Plan to Boost Job Growth"
+                    description="lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+                    image="https://cdn.usegalileo.ai/sdxl10/c211285b-0fdc-46ee-9467-9471799200dd.png"
+                    href="/berita/1"
+                  />
+                  <NewsCard
+                    title="Tech Giant Unveils Latest Smartphone Model with Advanced Features"
+                    description="lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+                    image="https://cdn.usegalileo.ai/sdxl10/5adb2e21-9930-44df-b4ec-db97de1aabce.png"
+                    href="/berita/2"
+                  />
+                </>
+              )
             )}
+            {!selectedCategory && !initialQuery && (
+            <>
             <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">National News</h2>
             <div className="p-4">
               <div className="flex items-stretch justify-between gap-4 rounded-xl">
@@ -179,6 +264,9 @@ export default function Home({
                         {nat?.title || "Major Infrastructure Project Commences in Urban Area"}
                       </a>
                     </p>
+                    {nat && (nat.published_at || nat.created_at) && (
+                      <p className="text-[#637588] text-sm leading-normal">{timeAgoID(nat.published_at || nat.created_at)}</p>
+                    )}
                     <p className="text-[#637588] text-sm font-normal leading-normal">{nat?.description || "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}</p>
                   </div>
                   <a
@@ -188,10 +276,19 @@ export default function Home({
                     <span className="truncate">Read More</span>
                   </a>
                 </div>
-                <div
-                  className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                  style={{ backgroundImage: `url("${nat?.image || "https://cdn.usegalileo.ai/sdxl10/1b4e4999-22c0-4cdb-9108-1eb705926672.png"}")` }}
-                ></div>
+                {nat?.id ? (
+                  <Link href={`/berita/${encodeURIComponent(nat.id)}`} className="w-full flex-1">
+                    <div
+                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+                      style={{ backgroundImage: `url("${nat?.image || "/news-placeholder.svg"}")` }}
+                    ></div>
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
+                    style={{ backgroundImage: `url("${nat?.image || "/news-placeholder.svg"}")` }}
+                  ></div>
+                )}
               </div>
             </div>
             <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">International News</h2>
@@ -204,6 +301,9 @@ export default function Home({
                         {intl?.title || "Global Leaders Gather for Climate Change Summit"}
                       </a>
                     </p>
+                    {intl && (intl.published_at || intl.created_at) && (
+                      <p className="text-[#637588] text-sm leading-normal">{timeAgoID(intl.published_at || intl.created_at)}</p>
+                    )}
                     <p className="text-[#637588] text-sm font-normal leading-normal">{intl?.description || "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}</p>
                   </div>
                   <a
@@ -213,10 +313,19 @@ export default function Home({
                     <span className="truncate">Read More</span>
                   </a>
                 </div>
-                <div
-                  className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                  style={{ backgroundImage: `url("${intl?.image || "https://cdn.usegalileo.ai/sdxl10/8828f888-53e6-4f22-bb84-2b9aa07fbb28.png"}")` }}
-                ></div>
+                {intl?.id ? (
+                  <Link href={`/berita/${encodeURIComponent(intl.id)}`} className="w-full flex-1">
+                    <div
+                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+                      style={{ backgroundImage: `url("${intl?.image || "/news-placeholder.svg"}")` }}
+                    ></div>
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
+                    style={{ backgroundImage: `url("${intl?.image || "/news-placeholder.svg"}")` }}
+                  ></div>
+                )}
               </div>
             </div>
             <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Sports</h2>
@@ -229,6 +338,9 @@ export default function Home({
                         {spr?.title || "Local Team Advances to Championship Final After Thrilling Match"}
                       </a>
                     </p>
+                    {spr && (spr.published_at || spr.created_at) && (
+                      <p className="text-[#637588] text-sm leading-normal">{timeAgoID(spr.published_at || spr.created_at)}</p>
+                    )}
                     <p className="text-[#637588] text-sm font-normal leading-normal">{spr?.description || "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}</p>
                   </div>
                   <a
@@ -238,10 +350,19 @@ export default function Home({
                     <span className="truncate">Read More</span>
                   </a>
                 </div>
-                <div
-                  className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                  style={{ backgroundImage: `url("${spr?.image || "https://cdn.usegalileo.ai/sdxl10/e2889238-c105-4e30-a631-aa160eaac60f.png"}")` }}
-                ></div>
+                {spr?.id ? (
+                  <Link href={`/berita/${encodeURIComponent(spr.id)}`} className="w-full flex-1">
+                    <div
+                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+                      style={{ backgroundImage: `url("${spr?.image || "/news-placeholder.svg"}")` }}
+                    ></div>
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
+                    style={{ backgroundImage: `url("${spr?.image || "/news-placeholder.svg"}")` }}
+                  ></div>
+                )}
               </div>
             </div>
             <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Entertainment</h2>
@@ -254,6 +375,9 @@ export default function Home({
                         {ent?.title || "Critically Acclaimed Film Wins Multiple Awards at Prestigious Ceremony"}
                       </a>
                     </p>
+                    {ent && (ent.published_at || ent.created_at) && (
+                      <p className="text-[#637588] text-sm leading-normal">{timeAgoID(ent.published_at || ent.created_at)}</p>
+                    )}
                     <p className="text-[#637588] text-sm font-normal leading-normal">{ent?.description || "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}</p>
                   </div>
                   <a
@@ -263,10 +387,19 @@ export default function Home({
                     <span className="truncate">Read More</span>
                   </a>
                 </div>
-                <div
-                  className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                  style={{ backgroundImage: `url("${ent?.image || "https://cdn.usegalileo.ai/sdxl10/61b57916-209b-40ef-b96b-a9b45e1f051c.png"}")` }}
-                ></div>
+                {ent?.id ? (
+                  <Link href={`/berita/${encodeURIComponent(ent.id)}`} className="w-full flex-1">
+                    <div
+                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+                      style={{ backgroundImage: `url("${ent?.image || "/news-placeholder.svg"}")` }}
+                    ></div>
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
+                    style={{ backgroundImage: `url("${ent?.image || "/news-placeholder.svg"}")` }}
+                  ></div>
+                )}
               </div>
             </div>
             <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Technology</h2>
@@ -279,6 +412,9 @@ export default function Home({
                         {tech?.title || "Breakthrough in Artificial Intelligence Research Leads to New Possibilities"}
                       </a>
                     </p>
+                    {tech && (tech.published_at || tech.created_at) && (
+                      <p className="text-[#637588] text-sm leading-normal">{timeAgoID(tech.published_at || tech.created_at)}</p>
+                    )}
                     <p className="text-[#637588] text-sm font-normal leading-normal">{tech?.description || "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}</p>
                   </div>
                   <a
@@ -288,27 +424,50 @@ export default function Home({
                     <span className="truncate">Read More</span>
                   </a>
                 </div>
-                <div
-                  className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                  style={{ backgroundImage: `url("${tech?.image || "https://cdn.usegalileo.ai/sdxl10/234de126-415d-46ed-8e08-36459d31471b.png"}")` }}
-                ></div>
+                {tech?.id ? (
+                  <Link href={`/berita/${encodeURIComponent(tech.id)}`} className="w-full flex-1">
+                    <div
+                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
+                      style={{ backgroundImage: `url("${tech?.image || "/news-placeholder.svg"}")` }}
+                    ></div>
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
+                    style={{ backgroundImage: `url("${tech?.image || "/news-placeholder.svg"}")` }}
+                  ></div>
+                )}
               </div>
             </div>
+            </>
+            )}
 
             {/* Trending Section */}
             <div className="px-4 py-8 border-t border-solid border-[#f0f2f4]">
               <h2 className="text-[#111418] text-[22px] font-bold leading-tight tracking-[-0.015em] pb-3">Trending</h2>
               <div className="flex flex-col gap-4">
-                {(trending && trending.length > 0 ? trending : [
-                  { id: "t1", title: "New Environmental Regulations" },
-                  { id: "t2", title: "Summer Travel Safety Tips" },
-                  { id: "t3", title: "Stock Market Update" },
-                ]).map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-3 hover:bg-[#f0f2f4] rounded-xl cursor-pointer transition-colors">
-                    <div className="size-3 rounded-full bg-[#1980e6]"></div>
-                    <p className="text-[#111418] text-base font-medium leading-tight">{item.title}</p>
-                  </div>
-                ))}
+                {trending && trending.length > 0 ? (
+                  trending.slice(0, 5).map((item) => (
+                    <Link key={item.id}
+                      href={`/berita/${encodeURIComponent(item.id)}`}
+                      className="flex items-center gap-4 p-3 hover:bg-[#f0f2f4] rounded-xl transition-colors"
+                    >
+                      <div className="size-3 rounded-full bg-[#1980e6]"></div>
+                      <p className="text-[#111418] text-base font-medium leading-tight">{item.title}</p>
+                    </Link>
+                  ))
+                ) : (
+                  [
+                    { id: "t1", title: "New Environmental Regulations" },
+                    { id: "t2", title: "Summer Travel Safety Tips" },
+                    { id: "t3", title: "Stock Market Update" },
+                  ].map((item) => (
+                    <div key={item.id} className="flex items-center gap-4 p-3 rounded-xl bg-[#f8fafc]">
+                      <div className="size-3 rounded-full bg-[#1980e6]"></div>
+                      <p className="text-[#111418] text-base font-medium leading-tight">{item.title}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -384,17 +543,73 @@ export default function Home({
 
 export async function getServerSideProps(ctx) {
   const q = ctx?.query?.q || "";
-  // Fetch all sections in parallel for faster SSR
-  const [topStories, national, international, sports, entertainment, technology, trending, searchResults] = await Promise.all([
-    fetchTopStories(),
-    fetchCategory("national"),
-    fetchCategory("international"),
-    fetchCategory("sports"),
-    fetchCategory("entertainment"),
-    fetchCategory("technology"),
-    fetchTrending(),
-    fetchSearch(q),
-  ]);
+  const selectedCategory = ctx?.query?.category ? String(ctx.query.category) : "";
+  const page = Number(ctx?.query?.page || 1);
+  const limit = Number(ctx?.query?.limit || 10);
+  // Optional SSR fetch: current user profile from internal API using cookies
+  const req = ctx?.req;
+  const cookie = req?.headers?.cookie || "";
+  const proto = (req?.headers?.["x-forwarded-proto"] || "http").toString();
+  const host = req?.headers?.["x-forwarded-host"] || req?.headers?.host;
+  const origin = `${proto}://${host}`;
+  let profile = null;
+  try {
+    const resp = await fetch(`${origin}/api/user/profile`, { headers: { cookie } });
+    if (resp.ok) {
+      profile = await resp.json();
+    }
+  } catch {}
+  // Fetch categories list
+  const categories = await fetchCategories();
+
+  // Fetch content depending on query
+  let topStories = [];
+  let national = [];
+  let international = [];
+  let sports = [];
+  let entertainment = [];
+  let technology = [];
+  let trending = [];
+  let searchResults = [];
+  let categoryItems = [];
+  let searchTotal = 0, searchPage = page, searchLimit = limit;
+  let categoryTotal = 0, categoryPage = page, categoryLimit = limit;
+
+  if (q) {
+    // For search view, only need search results and trending
+    topStories = [];
+    const [tres, sres] = await Promise.all([
+      fetchTrending(),
+      fetchSearchPaged(q, page, limit),
+    ]);
+    trending = tres;
+    searchResults = sres.items;
+    searchTotal = sres.total;
+    searchPage = sres.page;
+    searchLimit = sres.limit;
+  } else if (selectedCategory) {
+    // For category view, we only need category items and trending
+    topStories = [];
+    const [tres, cres] = await Promise.all([
+      fetchTrending(),
+      fetchCategoryPaged(selectedCategory, page, limit),
+    ]);
+    trending = tres;
+    categoryItems = cres.items;
+    categoryTotal = cres.total;
+    categoryPage = cres.page;
+    categoryLimit = cres.limit;
+  } else {
+    [topStories, national, international, sports, entertainment, technology, trending] = await Promise.all([
+      fetchTopStories(24),
+      fetchCategory("national"),
+      fetchCategory("international"),
+      fetchCategory("sports"),
+      fetchCategory("entertainment"),
+      fetchCategory("technology"),
+      fetchTrending(),
+    ]);
+  }
 
   return {
     props: {
@@ -407,6 +622,17 @@ export async function getServerSideProps(ctx) {
       trending,
       initialQuery: q,
       searchResults,
+      profile,
+      categories,
+      selectedCategory,
+      categoryItems,
+      // pagination
+      searchTotal,
+      searchPage,
+      searchLimit,
+      categoryTotal,
+      categoryPage,
+      categoryLimit,
     },
   };
 }

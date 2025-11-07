@@ -1,7 +1,10 @@
 import React from "react";
 import Link from "next/link";
+import { timeAgoID } from "../lib/formatDate";
 
-export default function NewsCard({ title, description, image, href, actionLabel = "Read More" }) {
+export default function NewsCard({ title, description, image, href, actionLabel = "Read More", createdAt, publishedAt }) {
+  const when = publishedAt || createdAt;
+  const rel = when ? timeAgoID(when) : "";
   return (
     <div className="p-4 @container">
       <div className="flex flex-col items-stretch justify-start rounded-xl @xl:flex-row @xl:items-start">
@@ -27,6 +30,9 @@ export default function NewsCard({ title, description, image, href, actionLabel 
             </Link>
           ) : (
             <p className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em]">{title}</p>
+          )}
+          {rel && (
+            <p className="text-[#637588] text-sm leading-normal">{rel}</p>
           )}
           <div className="flex items-end gap-3 justify-between">
             <p className="text-[#637588] text-base font-normal leading-normal">{description}</p>

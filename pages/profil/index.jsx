@@ -41,7 +41,7 @@ export default function ProfilPage({ profile }) {
             {/* <button aria-label="Lock" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🔒</button> */}
             {/* <button aria-label="Search" className="grid place-items-center size-9 rounded-full border hover:bg-gray-50">🔍</button> */}
             <Link href="/profil" aria-label="Profile" className="grid place-items-center size-9 rounded-full border overflow-hidden">
-              <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-8" style={{ backgroundImage: `url("${p.avatar}")` }} />
+              <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-8" style={{ backgroundImage: `url("${p.avatar || "/default-avatar.svg"}")` }} />
             </Link>
           </div>
         </header>

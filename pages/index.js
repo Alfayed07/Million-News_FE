@@ -1,33 +1,14 @@
-import { useEffect } from "react";
-import { useRouter } from "next/router";
-// import jwtDecode from "jwt-decode";
-import { Loader } from "rsuite";
+// Server-side redirect based on HttpOnly cookie for proper SSR
+export default function Index() { return null; }
 
-export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Run only on client
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        router.push("/auth/login");
-        return;
-      }
-      const decodedToken = jwtDecode(token);
-      const currentTime = Date.now() / 1000;
-      const isExpired = decodedToken?.exp < currentTime;
-      // router.push(isExpired ? "/auth/login" : "/home");
-      router.push(isExpired ? "/auth/login" : "/home");
-    } catch (error) {
-      console.error("Error decoding token:", error);
-      router.push("/home");
-    }
-  }, [router]);
-
-  return (
-    <>
-      <Loader content="Please Wait ..." size="lg" backdrop vertical center />
-    </>
-  );
+export async function getServerSideProps(ctx) {
+  const token = ctx?.req?.cookies?.token;
+  const next = ctx?.query?.next || "/home";
+  const destination = token ? "/home" : `/auth/login?next=${encodeURIComponent(next)}`;
+  return {
+    redirect: {
+      destination,
+      permanent: false,
+    },
+  };
 }

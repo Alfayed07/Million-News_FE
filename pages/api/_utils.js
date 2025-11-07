@@ -11,7 +11,21 @@ export async function proxyRequest(req, res, targetPath) {
     if (req.headers?.authorization) forwardHeaders["Authorization"] = req.headers.authorization;
     // If no Authorization header, try to map token cookie to Bearer Authorization
     if (!forwardHeaders["Authorization"]) {
-      const token = req.cookies?.token;
+      // Prefer parsed cookies if available
+      let token = req.cookies?.token;
+      // Fallback to parsing raw cookie header (SSR fetch path)
+      if (!token && req.headers?.cookie) {
+        const raw = req.headers.cookie;
+        const parts = raw.split(";");
+        for (const part of parts) {
+          const [k, v] = part.split("=");
+          if (!k) continue;
+          if (decodeURIComponent(k.trim()) === "token") {
+            token = decodeURIComponent((v || "").trim());
+            break;
+          }
+        }
+      }
       if (token) forwardHeaders["Authorization"] = `Bearer ${token}`;
     }
     if (req.headers["x-access-token"]) forwardHeaders["x-access-token"] = req.headers["x-access-token"];
