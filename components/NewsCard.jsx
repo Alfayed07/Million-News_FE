@@ -1,6 +1,28 @@
 import React from "react";
 import Link from "next/link";
 import { timeAgoID } from "../lib/formatDate";
+import Image from "next/image";
+
+function Img({ src, alt }) {
+  const safe = src || "/news-placeholder.svg";
+  return (
+    <div className="relative aspect-video rounded-xl overflow-hidden w-full">
+      <Image
+        src={safe}
+        alt={alt || "image"}
+        fill
+        unoptimized
+        onError={(e) => {
+          const el = e.currentTarget;
+          if (el.getAttribute('src') !== '/news-placeholder.svg') {
+            el.setAttribute('src', '/news-placeholder.svg');
+          }
+        }}
+        style={{ objectFit: 'cover' }}
+      />
+    </div>
+  );
+}
 
 export default function NewsCard({ title, description, image, href, actionLabel = "Read More", createdAt, publishedAt }) {
   const when = publishedAt || createdAt;
@@ -10,18 +32,10 @@ export default function NewsCard({ title, description, image, href, actionLabel 
       <div className="flex flex-col items-stretch justify-start rounded-xl @xl:flex-row @xl:items-start">
         {href ? (
           <Link href={href} className="w-full">
-            <div
-              className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-              style={{ backgroundImage: `url("${image}")` }}
-              aria-label={title}
-            />
+            <Img src={image} alt={title} />
           </Link>
         ) : (
-          <div
-            className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-            style={{ backgroundImage: `url("${image}")` }}
-            aria-label={title}
-          />
+          <Img src={image} alt={title} />
         )}
         <div className="flex w-full min-w-72 grow flex-col items-stretch justify-center gap-1 py-4 @xl:px-4">
           {href ? (

@@ -9,6 +9,24 @@ import { timeAgoID } from "../../lib/formatDate";
 import { fetchCategories } from "../../lib/categories";
 import { useRouter } from "next/router";
 
+// Reusable image with default fallback for featured sections (defined outside render)
+const FeaturedImg = ({ src, alt }) => {
+  const [error, setError] = useState(false);
+  const safe = !src || error ? "/news-placeholder.svg" : src;
+  return (
+    <div className="relative aspect-video rounded-xl overflow-hidden w-full">
+      <Image
+        src={safe}
+        alt={alt || "image"}
+        fill
+        unoptimized
+        onError={() => setError(true)}
+        style={{ objectFit: 'cover' }}
+      />
+    </div>
+  );
+};
+
 export default function Home({
   topStories = [],
   national = [],
@@ -43,14 +61,18 @@ export default function Home({
   const tech = pick(technology);
 
   // RSuite Pagination link component to work with Next.js routing
-  const NavLink = forwardRef(({ href, active, eventKey, as, ...rest }, ref) => {
+  const NavLink = forwardRef(({ href, active, eventKey, as, children, ...rest }, ref) => {
     const q = { ...router.query, page: eventKey };
     const linkHref = { pathname: "/home", query: q };
     return (
-      <Link ref={ref} href={linkHref} className={active ? "active" : undefined} {...rest} />
+      <Link ref={ref} href={linkHref} className={active ? "active" : undefined} {...rest}>
+        {children ?? eventKey}
+      </Link>
     );
   });
   NavLink.displayName = "NavLink";
+
+  // NavLink component remains inside since it depends on router hook
 
   return (
     <div className="relative flex size-full min-h-screen flex-col bg-white group/design-root overflow-x-hidden" style={{ fontFamily: 'Newsreader, "Noto Sans", sans-serif' }}>
@@ -84,6 +106,11 @@ export default function Home({
                   {String(c.name).charAt(0).toUpperCase() + String(c.name).slice(1)}
                 </Link>
               ))}
+              {profile?.role && ["admin","editor"].includes(profile.role) && (
+                <Link className="text-[#1980e6] text-sm font-semibold leading-normal hover:underline" href="/admin/news">
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex flex-1 justify-end gap-8">
@@ -278,16 +305,12 @@ export default function Home({
                 </div>
                 {nat?.id ? (
                   <Link href={`/berita/${encodeURIComponent(nat.id)}`} className="w-full flex-1">
-                    <div
-                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-                      style={{ backgroundImage: `url("${nat?.image || "/news-placeholder.svg"}")` }}
-                    ></div>
+                    <FeaturedImg src={nat?.image} alt={nat?.title} />
                   </Link>
                 ) : (
-                  <div
-                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                    style={{ backgroundImage: `url("${nat?.image || "/news-placeholder.svg"}")` }}
-                  ></div>
+                  <div className="w-full flex-1">
+                    <FeaturedImg src={nat?.image} alt={nat?.title} />
+                  </div>
                 )}
               </div>
             </div>
@@ -315,16 +338,12 @@ export default function Home({
                 </div>
                 {intl?.id ? (
                   <Link href={`/berita/${encodeURIComponent(intl.id)}`} className="w-full flex-1">
-                    <div
-                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-                      style={{ backgroundImage: `url("${intl?.image || "/news-placeholder.svg"}")` }}
-                    ></div>
+                    <FeaturedImg src={intl?.image} alt={intl?.title} />
                   </Link>
                 ) : (
-                  <div
-                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                    style={{ backgroundImage: `url("${intl?.image || "/news-placeholder.svg"}")` }}
-                  ></div>
+                  <div className="w-full flex-1">
+                    <FeaturedImg src={intl?.image} alt={intl?.title} />
+                  </div>
                 )}
               </div>
             </div>
@@ -352,16 +371,12 @@ export default function Home({
                 </div>
                 {spr?.id ? (
                   <Link href={`/berita/${encodeURIComponent(spr.id)}`} className="w-full flex-1">
-                    <div
-                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-                      style={{ backgroundImage: `url("${spr?.image || "/news-placeholder.svg"}")` }}
-                    ></div>
+                    <FeaturedImg src={spr?.image} alt={spr?.title} />
                   </Link>
                 ) : (
-                  <div
-                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                    style={{ backgroundImage: `url("${spr?.image || "/news-placeholder.svg"}")` }}
-                  ></div>
+                  <div className="w-full flex-1">
+                    <FeaturedImg src={spr?.image} alt={spr?.title} />
+                  </div>
                 )}
               </div>
             </div>
@@ -389,16 +404,12 @@ export default function Home({
                 </div>
                 {ent?.id ? (
                   <Link href={`/berita/${encodeURIComponent(ent.id)}`} className="w-full flex-1">
-                    <div
-                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-                      style={{ backgroundImage: `url("${ent?.image || "/news-placeholder.svg"}")` }}
-                    ></div>
+                    <FeaturedImg src={ent?.image} alt={ent?.title} />
                   </Link>
                 ) : (
-                  <div
-                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                    style={{ backgroundImage: `url("${ent?.image || "/news-placeholder.svg"}")` }}
-                  ></div>
+                  <div className="w-full flex-1">
+                    <FeaturedImg src={ent?.image} alt={ent?.title} />
+                  </div>
                 )}
               </div>
             </div>
@@ -426,16 +437,12 @@ export default function Home({
                 </div>
                 {tech?.id ? (
                   <Link href={`/berita/${encodeURIComponent(tech.id)}`} className="w-full flex-1">
-                    <div
-                      className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-                      style={{ backgroundImage: `url("${tech?.image || "/news-placeholder.svg"}")` }}
-                    ></div>
+                    <FeaturedImg src={tech?.image} alt={tech?.title} />
                   </Link>
                 ) : (
-                  <div
-                    className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
-                    style={{ backgroundImage: `url("${tech?.image || "/news-placeholder.svg"}")` }}
-                  ></div>
+                  <div className="w-full flex-1">
+                    <FeaturedImg src={tech?.image} alt={tech?.title} />
+                  </div>
                 )}
               </div>
             </div>
