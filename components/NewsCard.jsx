@@ -4,11 +4,27 @@ import { timeAgoID } from "../lib/formatDate";
 import Image from "next/image";
 
 function Img({ src, alt }) {
-  const safe = src || "/news-placeholder.svg";
+  // Build full URL for backend images
+  const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8070';
+  let imageSrc = "/news-placeholder.svg";
+  
+  if (src) {
+    // If src starts with /uploads, prepend backend URL
+    if (src.startsWith('/uploads/')) {
+      imageSrc = backendUrl + src;
+    } else if (src.startsWith('http://') || src.startsWith('https://')) {
+      // Already a full URL
+      imageSrc = src;
+    } else {
+      // Other relative paths or placeholders
+      imageSrc = src;
+    }
+  }
+  
   return (
     <div className="relative aspect-video rounded-xl overflow-hidden w-full">
       <Image
-        src={safe}
+        src={imageSrc}
         alt={alt || "image"}
         fill
         unoptimized

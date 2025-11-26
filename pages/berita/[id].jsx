@@ -28,15 +28,25 @@ function toParagraphs(text) {
 }
 
 export default function BeritaDetail({ item, initialComments = [] }) {
+  // Build full image URL
+  const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8070';
+  let imageUrl = item?.image || "/news-placeholder.svg";
+  if (item?.image?.startsWith('/uploads/')) {
+    imageUrl = backendUrl + item.image;
+  } else if (item?.image?.startsWith('http://') || item?.image?.startsWith('https://')) {
+    imageUrl = item.image;
+  }
+  
   // Record a view on mount (client-side only)
   useEffect(() => {
     if (!item?.id) return;
     fetch(`/api/news/${encodeURIComponent(item.id)}/view`, { method: "POST" }).catch(() => {});
   }, [item?.id]);
+  
   if (!item) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-[#637588]">Article not found.</div>
+        <div className="text-[#637588]">News not found.</div>
       </div>
     );
   }
@@ -67,7 +77,7 @@ export default function BeritaDetail({ item, initialComments = [] }) {
             <h1 className="text-[#111418] text-3xl md:text-4xl font-bold leading-tight tracking-[-0.015em]">{item.title}</h1>
             <div
               className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl"
-              style={{ backgroundImage: `url("${item.image}")` }}
+              style={{ backgroundImage: `url("${imageUrl}")` }}
             />
             {item.content ? (
               <div className="max-w-none space-y-6 md:space-y-8">
@@ -146,7 +156,7 @@ function CommentsSection({ newsId, initialItems = [] }) {
         const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
         if (mounted) setComments(items);
       } catch (e) {
-        if (mounted) setError(e.message || "Gagal memuat komentar");
+        if (mounted) setError(e.message || "Failed to load comments");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -181,21 +191,21 @@ function CommentsSection({ newsId, initialItems = [] }) {
         setNeedLogin(true);
         return;
       }
-      if (!res.ok) throw new Error(`Gagal mengirim komentar (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to post comment (${res.status})`);
       // Ensure SSR-refresh to reflect latest list from BE
       if (typeof window !== "undefined") {
         window.location.reload();
         return;
       }
     } catch (e) {
-      setError(e.message || "Gagal mengirim komentar");
+      setError(e.message || "Failed to post comment");
     } finally {
       setPosting(false);
     }
   }
 
   function displayName(c) {
-    return c?.name || c?.username || c?.user?.name || c?.user?.username || "Anonim";
+    return c?.name || c?.username || c?.user?.name || c?.user?.username || "Anonymous";
   }
   function avatarUrl(c) {
     return c?.avatar || c?.user?.avatar || "/default-avatar.svg";
@@ -213,7 +223,7 @@ function CommentsSection({ newsId, initialItems = [] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-xl md:text-2xl font-semibold text-[#111418]">Komentar</h2>
+      <h2 className="text-xl md:text-2xl font-semibold text-[#111418]">Comments</h2>
 
       {/* Form */}
       <form onSubmit={handlePost} className="flex flex-col gap-3">
@@ -229,7 +239,7 @@ function CommentsSection({ newsId, initialItems = [] }) {
           <div className="flex-1">
             <textarea
               className="w-full min-h-[90px] rounded-lg border border-[#e4e8ec] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1f6feb] text-[15px] placeholder:text-[#9aa6b2]"
-              placeholder={needLogin ? "Silakan login untuk berkomentar" : "Tulis komentar Anda…"}
+              placeholder={needLogin ? "Please login to comment" : "Write your comment…"}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               disabled={posting}
@@ -240,11 +250,11 @@ function CommentsSection({ newsId, initialItems = [] }) {
                 disabled={posting || !content.trim()}
                 className="inline-flex items-center rounded-md bg-[#1f6feb] px-4 py-2 text-white text-sm font-medium hover:bg-[#1a5ed1] disabled:opacity-50"
               >
-                {posting ? "Mengirim…" : "Kirim"}
+                {posting ? "Posting…" : "Post"}
               </button>
               {needLogin && (
                 <span className="text-sm text-[#637588]">
-                  Anda perlu <Link href="/auth/login" className="text-[#1f6feb] hover:underline">login</Link> untuk berkomentar.
+                  You need to <Link href="/auth/login" className="text-[#1f6feb] hover:underline">login</Link> to comment.
                 </span>
               )}
             </div>
@@ -253,7 +263,7 @@ function CommentsSection({ newsId, initialItems = [] }) {
       </form>
 
       {/* States */}
-      {loading && <p className="text-[#637588] text-sm">Memuat komentar…</p>}
+      {loading && <p className="text-[#637588] text-sm">Loading comments…</p>}
       {!!error && !loading && (
         <p className="text-[#c0392b] text-sm">{error}</p>
       )}
@@ -283,7 +293,7 @@ function CommentsSection({ newsId, initialItems = [] }) {
             ))}
           </ul>
         ) : (
-          <p className="text-[#637588] text-sm">Belum ada komentar.</p>
+          <p className="text-[#637588] text-sm">No comments yet.</p>
         )
       )}
     </div>

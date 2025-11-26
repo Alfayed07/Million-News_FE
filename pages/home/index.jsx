@@ -12,11 +12,25 @@ import { useRouter } from "next/router";
 // Reusable image with default fallback for featured sections (defined outside render)
 const FeaturedImg = ({ src, alt }) => {
   const [error, setError] = useState(false);
-  const safe = !src || error ? "/news-placeholder.svg" : src;
+  const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8070';
+  
+  let imageSrc = "/news-placeholder.svg";
+  if (src && !error) {
+    // If src starts with /uploads, prepend backend URL
+    if (src.startsWith('/uploads/')) {
+      imageSrc = backendUrl + src;
+    } else if (src.startsWith('http://') || src.startsWith('https://')) {
+      // Already a full URL
+      imageSrc = src;
+    } else {
+      imageSrc = src;
+    }
+  }
+  
   return (
     <div className="relative aspect-video rounded-xl overflow-hidden w-full">
       <Image
-        src={safe}
+        src={imageSrc}
         alt={alt || "image"}
         fill
         unoptimized

@@ -17,6 +17,7 @@ import CheckIcon from "@rsuite/icons/Check";
 import CloseIcon from "@rsuite/icons/Close";
 import { fetchProfile } from "../../../lib/profile";
 import { updateUserAccess } from "../../../lib/adminUsers";
+import AdminNavbar from "../../../components/navbar/AdminNavbar";
 
 const roleOptions = [
   { label: "Admin", value: "admin" },
@@ -41,7 +42,7 @@ const formatDate = (value) => {
 
 const StatusTag = ({ active }) => (
   <Tag color={active ? "green" : "red"}>
-    {active ? "Aktif" : "Nonaktif"}
+    {active ? "Active" : "Inactive"}
   </Tag>
 );
 
@@ -91,9 +92,9 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
     try {
       const updated = await updateUserAccess(id, { role });
       setRows((prev) => prev.map((row) => (row.id === id ? { ...row, role: updated.role } : row)));
-      showToast("success", "Peran pengguna diperbarui.");
+      showToast("success", "User role updated.");
     } catch (error) {
-      const message = error?.response?.data?.message || error.message || "Gagal memperbarui peran.";
+      const message = error?.response?.data?.message || error.message || "Failed to update role.";
       showToast("error", message);
     } finally {
       setUpdating(id, "role", false);
@@ -105,9 +106,9 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
     try {
       const updated = await updateUserAccess(id, { is_active: nextValue });
       setRows((prev) => prev.map((row) => (row.id === id ? { ...row, is_active: updated.is_active } : row)));
-      showToast("success", `Status pengguna ${nextValue ? "diaktifkan" : "dinonaktifkan"}.`);
+      showToast("success", `User status ${nextValue ? "activated" : "deactivated"}.`);
     } catch (error) {
-      const message = error?.response?.data?.message || error.message || "Gagal memperbarui status.";
+      const message = error?.response?.data?.message || error.message || "Failed to update status.";
       showToast("error", message);
     } finally {
       setUpdating(id, "active", false);
@@ -120,23 +121,7 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
 
   return (
     <div className="relative flex size-full min-h-screen flex-col bg-white" style={{ fontFamily: 'Newsreader, "Noto Sans", sans-serif' }}>
-      <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#f0f2f4] px-10 py-3">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-4 text-[#111418]">
-            <div className="size-4">
-              <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><g clipPath="url(#clip0_6_319)"><path d="M8.57829 8.57829C5.52816 11.6284 3.451 15.5145 2.60947 19.7452C1.76794 23.9758 2.19984 28.361 3.85056 32.3462C5.50128 36.3314 8.29667 39.7376 11.8832 42.134C15.4698 44.5305 19.6865 45.8096 24 45.8096C28.3135 45.8096 32.5302 44.5305 36.1168 42.134C39.7033 39.7375 42.4987 36.3314 44.1494 32.3462C45.8002 28.361 46.2321 23.9758 45.3905 19.7452C44.549 15.5145 42.4718 11.6284 39.4217 8.57829L24 24L8.57829 8.57829Z" fill="currentColor"></path></g><defs><clipPath id="clip0_6_319"><rect width="48" height="48" fill="white"></rect></clipPath></defs></svg>
-            </div>
-            <h2 className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em]">Milion News • Admin</h2>
-          </div>
-          <div className="flex items-center gap-6 text-sm">
-            <Link className="text-[#111418] font-medium leading-normal hover:underline" href="/home">Home</Link>
-            <Link className="text-[#111418] font-medium leading-normal hover:underline" href="/admin/news">Konten</Link>
-            <Link className="text-[#1980e6] font-semibold leading-normal hover:underline" href="/admin/users">Pengguna</Link>
-            <Link className="text-[#111418] font-medium leading-normal hover:underline" href="/admin/news/create">Buat Konten</Link>
-          </div>
-        </div>
-        <div className="text-sm text-[#637588]">{profile?.username} • {profile?.role}</div>
-      </header>
+      <AdminNavbar profile={profile} />
 
       <main className="flex flex-1 justify-center bg-[#f5f7fb] px-6 py-10 sm:px-12 lg:px-20">
         <div className="layout-content-container flex w-full max-w-6xl flex-1 flex-col">
@@ -144,13 +129,13 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
             <div className="flex flex-col gap-5 border-b border-[#e4e7ec] px-6 py-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8a94a6]">Manajemen Pengguna</span>
-                  <h3 className="mt-1 text-xl font-semibold text-[#111418]">Pengaturan Hak Akses</h3>
-                  <p className="text-sm text-[#637588]">Kelola peran dan status aktif pengguna secara terpusat.</p>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8a94a6]">User Management</span>
+                  <h3 className="mt-1 text-xl font-semibold text-[#111418]">Access Control Settings</h3>
+                  <p className="text-sm text-[#637588]">Manage user roles and active status centrally.</p>
                 </div>
                 <Stack spacing={12} alignItems="center">
                   <Input
-                    placeholder="Cari pengguna (nama, email, username)..."
+                    placeholder="Search users (name, email, username)..."
                     size="sm"
                     className="w-full sm:w-72"
                     value={searchTerm}
@@ -159,7 +144,7 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
                     clearable
                   />
                   <Button appearance="primary" size="sm" onClick={handleSearch}>
-                    Cari
+                    Search
                   </Button>
                 </Stack>
               </div>
@@ -175,7 +160,7 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
                   affixHeader
                 >
                   <Table.Column flexGrow={2} minWidth={220} align="left">
-                    <Table.HeaderCell className="text-center">Pengguna</Table.HeaderCell>
+                    <Table.HeaderCell className="text-center">User</Table.HeaderCell>
                     <Table.Cell>
                       {(rowData) => (
                         <div className="flex flex-col">
@@ -192,7 +177,7 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
                   </Table.Column>
 
                   <Table.Column width={160} align="center">
-                    <Table.HeaderCell>Peran</Table.HeaderCell>
+                    <Table.HeaderCell>Role</Table.HeaderCell>
                     <Table.Cell>
                       {(rowData) => {
                         const disabled = profile?.id === rowData.id || !isAdmin;
@@ -237,13 +222,13 @@ export default function AdminUsers({ profile, initialData, page, limit, search }
                   </Table.Column>
 
                   <Table.Column width={160} align="center">
-                    <Table.HeaderCell>Terdaftar</Table.HeaderCell>
+                    <Table.HeaderCell>Registered</Table.HeaderCell>
                     <Table.Cell>{(rowData) => formatDate(rowData.registered_at)}</Table.Cell>
                   </Table.Column>
                 </Table>
                 {rows.length === 0 && (
                   <div className="px-6 py-8 text-center text-[#637588]">
-                    {search ? "Tidak ada pengguna yang cocok dengan pencarian." : "Belum ada data pengguna."}
+                    {search ? "No users match your search." : "No user data yet."}
                   </div>
                 )}
               </div>

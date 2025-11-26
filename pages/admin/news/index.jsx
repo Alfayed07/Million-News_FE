@@ -5,8 +5,8 @@ import { Pagination, Table, Button, Stack, IconButton, Input } from 'rsuite';
 import PlusIcon from '@rsuite/icons/Plus';
 import EditIcon from '@rsuite/icons/Edit';
 import SendIcon from '@rsuite/icons/Send';
-import ArchiveIcon from '@rsuite/icons/Archive';
 import { fetchProfile } from '../../../lib/profile';
+import AdminNavbar from '../../../components/navbar/AdminNavbar';
 
 const StatusBadge = ({ status }) => {
   const label = (status || '').toLowerCase();
@@ -46,7 +46,19 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
     router.push({ pathname: '/admin/news', query: q });
   };
   async function doAction(action, id) {
-    const url = action === 'publish' ? `/api/manage/news/publish?id=${id}` : `/api/manage/news/archive?id=${id}`;
+    let url = '';
+    if (action === 'publish') url = `/api/manage/news/${id}/publish`;
+    else if (action === 'archive') url = `/api/manage/news/${id}/archive`;
+    else if (action === 'submit') url = `/api/manage/news/${id}/submit`;
+    else if (action === 'approve') url = `/api/manage/news/${id}/approve`;
+    else if (action === 'reject') {
+      const reason = prompt('Alasan penolakan?');
+      if (!reason) return;
+      const respReject = await fetch(`/api/manage/news/${id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+      if (respReject.ok) location.reload();
+      return;
+    }
+    if (!url) return;
     const resp = await fetch(url, { method: 'POST' });
     if (resp.ok) location.reload();
   }
@@ -61,23 +73,7 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
   const hasSearch = Boolean(normalizedTerm);
   return (
     <div className="relative flex size-full min-h-screen flex-col bg-white" style={{ fontFamily: 'Newsreader, "Noto Sans", sans-serif' }}>
-      <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#f0f2f4] px-10 py-3">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-4 text-[#111418]">
-            <div className="size-4">
-              <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><g clipPath="url(#clip0_6_319)"><path d="M8.57829 8.57829C5.52816 11.6284 3.451 15.5145 2.60947 19.7452C1.76794 23.9758 2.19984 28.361 3.85056 32.3462C5.50128 36.3314 8.29667 39.7376 11.8832 42.134C15.4698 44.5305 19.6865 45.8096 24 45.8096C28.3135 45.8096 32.5302 44.5305 36.1168 42.134C39.7033 39.7375 42.4987 36.3314 44.1494 32.3462C45.8002 28.361 46.2321 23.9758 45.3905 19.7452C44.549 15.5145 42.4718 11.6284 39.4217 8.57829L24 24L8.57829 8.57829Z" fill="currentColor"></path></g><defs><clipPath id="clip0_6_319"><rect width="48" height="48" fill="white"></rect></clipPath></defs></svg>
-            </div>
-            <h2 className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em]">Milion News • Admin</h2>
-          </div>
-          <div className="flex items-center gap-6 text-sm">
-            <Link className="text-[#111418] font-medium leading-normal hover:underline" href="/home">Home</Link>
-            <Link className="text-[#1980e6] font-semibold leading-normal hover:underline" href="/admin/news">Konten</Link>
-            <Link className="text-[#111418] font-medium leading-normal hover:underline" href="/admin/users">Pengguna</Link>
-            <Link className="text-[#111418] font-medium leading-normal hover:underline" href="/admin/news/create">Buat Konten</Link>
-          </div>
-        </div>
-        <div className="text-sm text-[#637588]">{profile?.username} • {profile?.role}</div>
-      </header>
+      <AdminNavbar profile={profile} />
 
       <main className="flex flex-1 justify-center bg-[#f5f7fb] px-6 py-10 sm:px-12 lg:px-20">
         <div className="layout-content-container flex w-full max-w-6xl flex-1 flex-col">
@@ -91,16 +87,16 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
                 </div>
                 <Stack spacing={12} alignItems="center">
                   <Input
-                    placeholder="Search ..."
+                    placeholder="Search news..."
                     size="sm"
                     className="w-full sm:w-56"
                     value={searchTerm}
                     onChange={value => setSearchTerm(value)}
                     clearable
                   />
-                  <Button as={Link} href="/admin/news/create" appearance="primary" size="sm" startIcon={<PlusIcon />}>
+                  {/* <Button as={Link} href="/admin/news/create" appearance="primary" size="sm" startIcon={<PlusIcon />}>
                     Create Draft
-                  </Button>
+                  </Button> */}
                 </Stack>
               </div>
               <div className="flex justify-start">
@@ -168,7 +164,7 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
                         </Table.Cell>
                       </Table.Column>
 
-                      <Table.Column width={120} align="center" fixed="right">
+                      <Table.Column width={190} align="center" fixed="right">
                         <Table.HeaderCell>Actions</Table.HeaderCell>
                         <Table.Cell style={{ padding: '6px' }}>
                           {rowData => (
@@ -181,39 +177,29 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
                                 title="Edit"
                                 onClick={() => router.push(`/admin/news/edit/${rowData.id}`)}
                               />
-                              {rowData.status === 'draft' && (
+                              {rowData.status === 'published' && (
+                                <IconButton
+                                  icon={<SendIcon />}
+                                  color="yellow"
+                                  appearance="primary"
+                                  size="sm"
+                                  circle
+                                  title="Archive"
+                                  onClick={() => doAction('archive', rowData.id)}
+                                />
+                              )}
+                              {rowData.status === 'archived' && (
                                 <IconButton
                                   icon={<SendIcon />}
                                   color="green"
                                   appearance="primary"
                                   size="sm"
                                   circle
-                                  title="Publish"
+                                  title="Publish Again"
                                   onClick={() => doAction('publish', rowData.id)}
                                 />
                               )}
                             </div>
-                          )}
-                        </Table.Cell>
-                      </Table.Column>
-
-                      <Table.Column width={110} align="center" fixed="right">
-                        <Table.HeaderCell>Archive</Table.HeaderCell>
-                        <Table.Cell style={{ padding: '6px' }}>
-                          {rowData => (
-                            rowData.status !== 'archived' ? (
-                              <IconButton
-                                icon={<ArchiveIcon />}
-                                color="orange"
-                                appearance="primary"
-                                size="sm"
-                                circle
-                                title="Archive"
-                                onClick={() => doAction('archive', rowData.id)}
-                              />
-                            ) : (
-                              <span className="text-[#637588] text-sm">—</span>
-                            )
                           )}
                         </Table.Cell>
                       </Table.Column>
@@ -281,7 +267,7 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
                         <Table.Cell>{rowData => rowData.created_at ? new Date(rowData.created_at).toISOString().slice(0, 10) : '-'}</Table.Cell>
                       </Table.Column>
 
-                      <Table.Column width={200} align="center" fixed="right">
+                      <Table.Column width={260} align="center" fixed="right">
                         <Table.HeaderCell>Actions</Table.HeaderCell>
                         <Table.Cell style={{ padding: '6px' }}>
                           {rowData => (
@@ -294,33 +280,55 @@ export default function AdminNews({ profile, drafts, mine, pageDrafts, pageMine,
                                 title="Edit"
                                 onClick={() => router.push(`/admin/news/edit/${rowData.id}`)}
                               />
-                              <IconButton
-                                icon={<SendIcon />}
-                                color="green"
-                                appearance="primary"
-                                size="sm"
-                                circle
-                                title="Publish"
-                                onClick={() => doAction('publish', rowData.id)}
-                              />
+                              {/* Draft workflow action buttons */}
+                              {profile?.role !== 'editor' && rowData.status === 'draft' && !rowData.needs_approval && (
+                                <IconButton
+                                  icon={<SendIcon />}
+                                  color="violet"
+                                  appearance="primary"
+                                  size="sm"
+                                  circle
+                                  title="Submit for Approval"
+                                  onClick={() => doAction('submit', rowData.id)}
+                                />
+                              )}
+                              {profile?.role === 'editor' && rowData.status === 'draft' && !rowData.needs_approval && (
+                                <IconButton
+                                  icon={<SendIcon />}
+                                  color="green"
+                                  appearance="primary"
+                                  size="sm"
+                                  circle
+                                  title="Publish"
+                                  onClick={() => doAction('publish', rowData.id)}
+                                />
+                              )}
+                              {profile?.role === 'editor' && rowData.status === 'draft' && rowData.needs_approval && (
+                                <>
+                                  <IconButton
+                                    icon={<SendIcon />}
+                                    color="green"
+                                    appearance="primary"
+                                    size="sm"
+                                    circle
+                                    title="Approve & Publish"
+                                    onClick={() => doAction('approve', rowData.id)}
+                                  />
+                                  <IconButton
+                                    icon={<SendIcon />}
+                                    color="red"
+                                    appearance="primary"
+                                    size="sm"
+                                    circle
+                                    title="Reject"
+                                    onClick={() => doAction('reject', rowData.id)}
+                                  />
+                                </>
+                              )}
+                              {profile?.role !== 'editor' && rowData.status === 'draft' && rowData.needs_approval && (
+                                <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">Waiting Approval</span>
+                              )}
                             </div>
-                          )}
-                        </Table.Cell>
-                      </Table.Column>
-
-                      <Table.Column width={120} align="center" fixed="right">
-                        <Table.HeaderCell>Archive</Table.HeaderCell>
-                        <Table.Cell style={{ padding: '6px' }}>
-                          {rowData => (
-                            <IconButton
-                              icon={<ArchiveIcon />}
-                              color="orange"
-                              appearance="primary"
-                              size="sm"
-                              circle
-                              title="Archive"
-                              onClick={() => doAction('archive', rowData.id)}
-                            />
                           )}
                         </Table.Cell>
                       </Table.Column>
